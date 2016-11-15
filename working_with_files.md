@@ -1,12 +1,6 @@
 # File IO With Akka Streams
 
-It's not uncommon to work with files too large to fit into memory. When you watch a video file on your laptop, your video player doesn't read the entire file into memory. Instead, it reads the video file as a stream of bytes from which it consumes elements as required. In this blog post, you'll not only learn how to work with files as Sources and Sink that produce and consume streams of bytes, you'll also learn techniques that can be used to transform _any_ stream of binary data.
-
-- Using ByteStrings to manipulate binary data.
-- Writing streams of bytes to files.
-- Reading streams of bytes from files.
-- Transforming streams of bytes into streams of lines and back.
-- Reading and writing streams of data to and from CSV files.
+It's not uncommon to work with files too large to fit into memory. When you watch a video file on your laptop, your video player doesn't read the entire file into memory. Instead, it reads the video file as a stream of bytes which it consumes as required. If you write a program to examine a multi-gigabyte CSV file, it's probably a good idea to treat it as a stream of rows instead of as a single multi-gigabyte chunk that must be loaded into memory all at once. In this blog post, you'll not only learn how to work with files as Sources and Sinks that produce and consume streams of bytes, you'll also learn techniques that can be used to transform _any_ stream of binary data.
 
 ## Working with files
 
@@ -440,6 +434,8 @@ In this case we're working with a small file, but this same technique can easily
 In this post we learned:
 
 //todo: expand this w/ more on byte strings
-. How to transform streams of byte string chunks read from files into streams of lines
+. How to read files as streams of ByteStrings.
+. How to write streams of ByteStrings to files.
+. How to transform streams of ByteStrings into streams of lines
 . How to use Akka Streams to encode and decode CSV files
 . How to use Akka Streams to quickly explore large CSV files.
