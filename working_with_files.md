@@ -1,20 +1,19 @@
-# Streaming Data to and from Files (working title)
-Doc Writer <pkinsky@gmail.com>
+# File IO With Akka Streams
 
-It's not uncommon to work with files too large to fit into memory. When you watch a video file on your laptop, your video player doesn't read the entire file into memory. Instead, it reads the video file as a stream of bytes from which it consumes elements as required. In this chapter, you'll not only learn how to work with files as Sources and Sink that produce and consume streams of bytes, you'll also learn techniques that can be used to transform _any_ stream of binary data.
+It's not uncommon to work with files too large to fit into memory. When you watch a video file on your laptop, your video player doesn't read the entire file into memory. Instead, it reads the video file as a stream of bytes from which it consumes elements as required. In this blog post, you'll not only learn how to work with files as Sources and Sink that produce and consume streams of bytes, you'll also learn techniques that can be used to transform _any_ stream of binary data.
 
 - Using ByteStrings to manipulate binary data.
 - Writing streams of bytes to files.
 - Reading streams of bytes from files.
 - Transforming streams of bytes into streams of lines and back.
 - Reading and writing streams of data to and from CSV files.
-- Integrating stream processing graphs into your codebase by encapsulating them inside service classes that provide a familiar Future-based interface.
 
 ## Working with files
 
-Whether you're sending streams of data over the network, reading messages from an event bus like Kafka, sending data between processes on a single machine, or just reading from the file system, you need to work with raw bytes. This section focusses on working with files, but the techniques can be applied to transforming arbitrary streams of bytes.
+Whether you're sending streams of data over the network, reading messages from an event bus like Kafka, sending data between processes on a single machine, or just reading from the file system, you (or more often, the library or framework you're using) will need to work with raw bytes. This post focusses on working with files, but the techniques can be applied to transforming arbitrary streams of bytes.
 
-.Setup
+#### Setup
+
 ```bash
 git clone https://github.com/pkinsky/streams101.git
 cd streams101
