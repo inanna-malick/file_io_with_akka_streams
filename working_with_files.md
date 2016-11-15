@@ -26,8 +26,8 @@ To follow along with the code examples in this post, clone this project (if you 
 
 `akka.util.ByteString` is a collection type that holds a sequence of bytes, like an `Array[Byte]`. Unlike byte arrays, byte strings are optimized to reduce the number of array copies required to concatenate or slice sequences of bytes. Also unlike arrays, they're fully thread safe. ByteStrings can be created from sequences of numbers, from byte arrays or from `java.nio.ByteBuffers`, but by far the simplest way to create them is from strings. They default to assuming that strings are encoded using the UTF_8 encoding, the default string encoding used by both Java and Scala. ByteString instances also have a convenience method, `utf8String`, that converts a sequence of bytes into its UTF-8 representation.
 
-.ByteString example
-```
+#### ByteString example
+```scala
 import akka.util.ByteString
 val bytes = ByteString("test") // ByteString(116, 101, 115, 116)
 val string = bytes.utf8String // "test"
@@ -41,8 +41,8 @@ We'll be using byte strings to represent chunks of unstructured binary data in v
 
 Akka streams provides tools for reading from and writing to files on the local file system via streams of byte strings. Most hard drives are optimized to work with large file reads, so files are read in chunks (instead of byte by byte or line by line). Each chunk is a single ByteString.
 
-.File Source
-```
+#### File Source
+```scala
 import java.io.File
 val input = new File("data/words1.txt")
 val readFile: Source[ByteString, Future[Long]] = FileIO.fromFile(input)
@@ -50,8 +50,8 @@ val readFile: Source[ByteString, Future[Long]] = FileIO.fromFile(input)
 
 `readFile`, the Source created by `FileIO.fromFile`, reads a stream of bytes from the provided file (in this case, data/words1.txt in the streams101 repo). When materialized, it yields a `Future[Long]` which completes with the number of bytes read when the materialized source is done reading from the target file. Note that just defining `readFile` does not create a file handle or have any other side effect. `readFile` can be materialized multiple times and each time it will read byte strings from data/words1.txt.
 
-.Reading from Files
-```
+#### Reading from Files
+```scala
 val readFileGraph: RunnableGraph[Future[Long]] = readFile.to(Sink.foreach{ bytes => println(bytes.utf8String)})
 val f: Future[Long] = readFileGraph.run
 f.onComplete{
@@ -70,16 +70,16 @@ Try modifying the file at data/words1.txt and running `readFileGraph` again. The
 
 ### Writing streams of ByteStrings to files
 
-.File Sink
-```
+#### File Sink
+```scala
 val output = new File("data/out1.txt")
 val writeFile: Sink[ByteString, Future[Long]] = FileIO.toFile(output)
 ```
 
 `writeFile`, the Sink created by `FileIO.toFile`, writes a stream of bytes to the provided file (in this case, data/out1.txt). When materialized, like `FileIO.toFile`, it yields a `Future[Long]` which completes with the number of bytes written when the materialized sink is done writing to the provided file. As with `readFile`, defining `writeFile` has no side effects. Merely defining the Sink does not modify the file system in any way.
 
-.Copying Files
-```
+#### Copying Files
+```scala
 val copyGraph: RunnableGraph[(Future[Long], Future[Long])] = readFile.toMat(writeFile)(Keep.both)
 val (bytesReadF, bytesWrittenF): (Future[Long], Future[Long]) = copyGraph.run
 for {
@@ -98,8 +98,8 @@ After running `copyGraph`, data/out1.txt should now exist and have the same cont
 
 We can also apply transformations to streams of byte strings. Let's start with something simple, an upgraded version of `copyGraph` that also converts every character in the original file to upper case.
 
-.toUpperCase
-```
+#### toUpperCase
+```scala
 val toUpperCopyGraph: RunnableGraph[Future[(Long, Long)]] =
   readFile.map{ (b: ByteString) =>
     val asString = b.utf8String
@@ -126,8 +126,8 @@ val (bytesRead, bytesWritten): (Long, Long) = Await.result(f, 1 second)
 
 Instead of working with files too large to be read in a single chunk, we can set the chunkSize parameter to unfeasibly low numbers to see what happens (working in the REPL makes this type of quick experiment easy. Instead of having to run our application every time we want to test something out, we can quickly run experiments and try different approaches).
 
-.smaller chunks
-```
+#### smaller chunks
+```scala
 val f1 = FileIO.fromFile(input, chunkSize = 16).map(_.utf8String).toMat(Sink.head)(Keep.right).run
 f1.onComplete(println)
 //Success(Test, test...
@@ -142,8 +142,8 @@ If we read from the same input file using smaller chunk sizes like 16 or 8, we c
 
 Even worse, utf8 is a variable length encoding, which means that some characters, like 'Ǯ', can take up multiple bytes when converted to `ByteString`. That means that it's possible to split a character across two chunks, resulting in completely invalid characters.
 
-.Multibyte characters
-```
+#### Multibyte characters
+```scala
 val multibyte = ByteString("ǭǮ") //ByteString(-57, -83, -57, -82)
 val (left, right) = multibyte.splitAt(3) //(ByteString(-57, -83, -57), ByteString(-82))
 left.utf8String // "ǭ�"
@@ -158,7 +158,7 @@ If you want to write really robust applications that deal with unstructured bina
 
 #### ToLines
 
-```
+```scala
 val delimiter = ByteString("\n") // "\r\n" if on windows
 val toLines: Flow[ByteString, String, Unit] =
   Framing.delimiter(
@@ -175,7 +175,7 @@ Fortunately, Akka Streams provides helpers for working with streams of unstructu
 
 #### Testing ToLines
 
-```
+```scala
 val readLinesGraph: RunnableGraph[Future[Seq[String]]] = FileIO.fromFile(input, chunkSize = 16).via(toLines).toMat(Sink.seq)(Keep.right)
 val f: Future[Seq[String]] = readLinesGraph.run
 f.onComplete(println)
@@ -203,7 +203,7 @@ CSV files are made up of rows, each taking up one line. Each row is made up of c
 
 #### Simple CSV encoding
 
-```
+```scala
 case class Car(model: String, year: Int)
 def toCsvRow(c: Car): String = s"${c.model}, ${c.year}"
 
@@ -226,8 +226,8 @@ We can easily convert small, in memory, sequences of elements to CSV rows. The f
 
 We can also write streams of elements to CSV files. We'll need to convert a stream of Cars into a stream of CSV file lines, then write that stream of lines to a file Sink. Let's tackle the second part of that problem first.
 
-.Writing a stream of lines to a file
-```
+#### Writing a stream of lines to a file
+```scala
 def writeLinesToFile(f: File): Sink[String, Future[Long]] = {
     Flow[String]
       .intersperse("\n")
@@ -238,7 +238,7 @@ def writeLinesToFile(f: File): Sink[String, Future[Long]] = {
 
 This Sink handles inserting newlines using `intersperse("\n")`, which inserts some value (in this case a single-character newline string) in between each element of a stream. Next, we map over the stream of lines and newlines to convert it into a stream of `ByteString` and then write those byte strings to the provided file (using `toMat` and `Keep.right` to hang onto the `Future[Long]` that is the materialization value of the Sink created by `FileIO.toFile`).
 
-.CSV streaming write
+#### CSV streaming write
 ```scala
 def writeCarsToFile(f: File): Sink[Car, Future[Long]] = {
   val headers: Source[String, Unit] = Source.single("model, year")
@@ -290,7 +290,7 @@ It does. By writing to CSV files, you can output data in a format that is widely
 
 Parsing CSV-encoded data is quite simple. For this post, we'll be making a few simplifying assumptions. First, commas and newlines are _reserved characters_. They will only be used to separate rows and lines. Second, all CSV files have a header row.
 
-.CSV streaming read prelude
+#### CSV streaming read prelude
 ```scala
 def csvRowToCar(s: String): Option[Car] = Try{
   val parts = s.split(",")
@@ -310,7 +310,7 @@ Using `csvRowToCar` we can easily parse CSV rows, resulting in either `Some(x: C
 
 Now all we need to do is apply this function to a stream of lines read from a CSV file. Let's start by creating a Flow that consumes strings, parses them, and produces Cars, then use that to build a Source that reads CSV-encoded Car records from some file.
 
-.parseCarsCSV
+#### parseCarsCSV
 ```scala
 val parseCarsCSV: Flow[String, Car, Unit] =
   Flow[String].map(csvRowToCar).collect{ case Some(car) => car }
@@ -318,7 +318,7 @@ val parseCarsCSV: Flow[String, Car, Unit] =
 
 `parseCarsCSV` uses `map` to apply the `csvRowToCar` function to each string consumed by the Flow, resulting in an `Option[Car]` which is then either unwrapped (resulting in a plain old `Car`) or filtered out using `collect` and a partial function that pattern-matches `Some`.
 
-.CSV streaming read
+#### CSV streaming read
 ```scala
 def readCarsFromFile(f: File): Source[Car, Future[Long]] =
   FileIO.fromFile(f).via(toLines).drop(1).via(parseCarsCSV)
@@ -326,7 +326,7 @@ def readCarsFromFile(f: File): Source[Car, Future[Long]] =
 
 `readCarsFromFile` reads byte strings from the provided file, converts them to lines using `toLines` (defined earlier in this post), drops the first header row using `drop(1)` and parses them using `parseCarsCSV`. Let's test it out by reading the CSV file, cars.csv, that we just wrote some test values to.
 
-.CSV streaming read test
+#### CSV streaming read test
 ```scala
 val inFile = new File("cars.csv")
 val graph: RunnableGraph[Future[Seq[Car]]] = readCarsFromFile(inFile).toMat(Sink.seq)(Keep.right)
@@ -340,48 +340,47 @@ As expected, the resulting `Car` records are the same as those written to disk u
 
 This is all good for when we want to incorporate CSV files into our program, but what if we just want some tools to simplify working with arbitrary CSV files as streams? Let's create our own! We'll use `Map[String, String]` to represent each row read from a CSV file and use the first row of the file to figure out the field names that will be used as keys in these maps.
 
-.Arbitrary CSV widget read
+#### Arbitrary CSV widget read
 ```scala
-type CsvRow = Map[String, String] <1>
+//For convenience and readability, we'll use the type alias `CsvRow` instead of `Map[String, String]`.
+type CsvRow = Map[String, String]
 
 def readArbitraryCSV(f: File): Source[CsvRow, Future[Long]] = {
 
-  def parseCSV(fieldNames: Seq[String]): Flow[String, CsvRow, Unit] = { <2>
+  // Given some sequence of field names, create a Flow that consumes lines and produces `CsvRow` instances.
+  def parseCSV(fieldNames: Seq[String]): Flow[String, CsvRow, Unit] = {
     Flow[String].map{ row =>
       val parts = row.split(",").map(_.trim)
       fieldNames.zip(parts).toMap
     }
   }
 
-  val parseArbitrary: Flow[String, CsvRow, Unit] = { <3>
+
+  //Now for the main event: a Flow that consumes strings and produces `CsvRow` instances
+  val parseArbitrary: Flow[String, CsvRow, Unit] = {
     Flow[String]
-      .prefixAndTail(1) <4>
-      .flatMapConcat{ case (prefix: Seq[String], tail: Source[String, Unit]) => <5>
-        prefix.headOption.fold(Source.empty[CsvRow]){ header => <6>
-          val fieldNames = header.split(",").map(_.trim) <7>
+       // This is where things get complicated. Using `prefixAndTail(1)`, we convert a Flow of strings into a Flow that consumes strings and produces a single element of type `(Seq[String], Source[String, Unit])`. The sequence contains the first element consumed by the Flow (if any were consumed) and the Source produces all other elements consumed by the Flow.
+      .prefixAndTail(1)
+       //Now that we have a Flow of Sources (technically, a `Flow[String, (Seq[String], Source[String, Unit])]`), we can flatten it using `flatMapConcat`.
+      .flatMapConcat{ case (prefix: Seq[String], tail: Source[String, Unit]) =>
+        //We start by looking at the first element of the `prefix` sequence. If there's no element, that means the upstream completed before sending any strings downsteam, so we return an empty Source of `CsvRow`.
+        prefix.headOption.fold(Source.empty[CsvRow]){ header =>
+          //If we do have a header row, we split it into field names, use those field names to create a CSV parser Flow using `parseCSV`, append that Flow to the `tail` Source using `via`, and return the resulting Source of `CsvRow` instances which is then flattened by `flatMapConcat`, resulting in a `Flow[String, CsvRow]`
+          val fieldNames = header.split(",").map(_.trim)
           tail.via(parseCSV(fieldNames))
         }
       }
   }
 
-  FileIO.fromFile(f).via(toLines).via(parseArbitrary) <8>
+  //Finally, we create a Source to read byte strings from the provided file using `FileIO.fromFile` and use the `toLines` and `parseArbitrary` Flows to convert the resulting stream of byte strings to lines and then to `CsvRow` instances.
+  FileIO.fromFile(f).via(toLines).via(parseArbitrary)
 }
 ```
-
-<1> For convenience and readability, we'll use the type alias `CsvRow` instead of `Map[String, String]`.
-<2> Given some sequence of field names, create a Flow that consumes lines and produces `CsvRow` instances.
-<3> Now for the main event: a Flow that consumes strings and produces `CsvRow` instances
-<4> This is where things get complicated. Using `prefixAndTail(1)`, we convert a Flow of strings into a Flow that consumes strings and produces a single element of type `(Seq[String], Source[String, Unit])`. The sequence contains the first element consumed by the Flow (if any were consumed) and the Source produces all other elements consumed by the Flow.
-<5> Now that we have a Flow of Sources (technically, a `Flow[String, (Seq[String], Source[String, Unit])]`), we can flatten it using `flatMapConcat`.
-<6> We start by looking at the first element of the `prefix` sequence. If there's no element, that means the upstream completed before sending any strings downsteam, so we return an empty Source of `CsvRow`.
-<7> If we do have a header row, we split it into field names, use those field names to create a CSV parser Flow using `parseCSV`, append that Flow to the `tail` Source using `via`, and return the resulting Source of `CsvRow` instances which is then flattened by `flatMapConcat`, resulting in a `Flow[String, CsvRow]`
-<8> Finally, we create a Source to read byte strings from the provided file using `FileIO.fromFile` and use the `toLines` and `parseArbitrary` Flows to convert the resulting stream of byte strings to lines and then to `CsvRow` instances.
-
 
 Let's test `readArbitraryCSV` on cars.csv, to confirm that it behaves as expected given known input.
 
 
-.Testing with cars.csv
+#### Testing with cars.csv
 ```scala
 val inFile = new File("cars.csv")
 val graph: RunnableGraph[Future[Seq[CsvRow]]] = readArbitraryCSV(inFile).toMat(Sink.seq)(Keep.right)
@@ -396,7 +395,7 @@ As expected, we get a stream of `CsvRow` instances, each with keys taken from th
 
 Let's test it with some test user data stored in data/test_users.csv.
 
-.Testing with random CSV file
+#### Testing with random CSV file
 ```scala
 val inFile = new File("data/test_users.csv")
 val graph: RunnableGraph[Future[Seq[CsvRow]]] = readArbitraryCSV(inFile).toMat(Sink.seq)(Keep.right)
@@ -411,8 +410,8 @@ val userCsvRows = Await.result(graph.run, 5 seconds)
 
 We can use `readArbitraryCSV` to read arbitrary CSV files, allowing us to quickly construct single-use stream processing graphs to process CSV files too large to fit into memory. For example, let's say we want to count the number of users of each gender in a multi-gigabyte database dump of our user database. Instead of creating a case class to represent users, writing and debugging a `csvRowToUser` function and using it to create a custom Source, we can just reuse `readArbitraryCSV`.
 
-.Counting users by gender
-```
+#### Counting users by gender
+```scala
 val inFile = new File("data/test_users.csv")
 val defaultGender = "n/a" //AI's, hive minds, etc may wish to set the gender field to n/a
 
