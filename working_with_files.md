@@ -122,7 +122,7 @@ val (bytesRead, bytesWritten): (Long, Long) = Await.result(f, 1 second)
 `FileIO.fromFile` also takes an optional chunk size parameter which defaults to 8192. When the resulting source is materialized, it reads the target file's contents as a stream of byte strings with length equal to the chunk size parameter (except for the last chunk, which might be smaller). In these examples, we've only worked with files much smaller than 8192 bytes (data/words1.txt is only 58 bytes long). In the real world, we might instead work with very large, multi-megabyte files. The boundary between two chunks of bytes might split a line, a word, or even a character into two pieces.
 
 
-[Splitting words into chunks]( images/split_word.png "Splitting words into chunks")
+![Splitting words into chunks]( images/split_word.png "Splitting words into chunks")
 
 Instead of working with files too large to be read in a single chunk, we can set the chunkSize parameter to unfeasibly low numbers to see what happens (working in the REPL makes this type of quick experiment easy. Instead of having to run our application every time we want to test something out, we can quickly run experiments and try different approaches).
 
@@ -251,7 +251,7 @@ def writeCarsToFile(f: File): Sink[Car, Future[Long]] = {
 
 Here we take a Flow of Cars and map over each to convert it to a CSV row. Then, we prepend a Source containing the header row to the stream of lines to be written to the CSV file. Prepend reads every element from the provided source (just one element, in this case) before reading any from upstream. Note that if prepend is used with an infinite Source, the resulting Flow will only ever consume elements from that Source and not any other upstream Sources.
 
-[writeCarsToFile graph shape](images/cars_csv_prepend.jpg "writeCarsToFile graph shape")
+![writeCarsToFile graph shape](images/cars_csv_prepend.jpg "writeCarsToFile graph shape")
 
 As you can see, the Sink-shaped stream processing graph defined by `writeCarsToFile` uses `prepend` to combine the output of the `headers` Source with the output of the previous stage, a Flow that applies the `toCsvRow` function to each element consumed by the Sink defined by `writeCarsToFile`.
 
