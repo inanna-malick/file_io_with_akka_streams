@@ -15,12 +15,12 @@ Whether you're sending streams of data over the network, reading messages from a
 #### Setup
 
 ```bash
-git clone https://github.com/pkinsky/streams101.git
-cd streams101
+git clone https://github.com/pkinsky/file_io_with_akka_streams.git
+cd file_io_with_akka_streams
 sbt console
 ```
 
-To follow along with the code examples in this chapter, clone the streams101 project (if you haven't already) and use `sbt console` to start up a REPL with everything already imported and an implicit materializer and execution context already created. Every example in this chapter is designed to be run from the REPL. You're encouraged to test out different methods and combinations of stream processing graph components.
+To follow along with the code examples in this post, clone this project (if you haven't already) and use `sbt console` to start up a REPL with everything already imported and an implicit materializer and execution context already created. Every example in this post is designed to be run from the REPL. You're encouraged to test out different methods and combinations of stream processing graph components.
 
 ### Byte strings
 
@@ -121,8 +121,8 @@ val (bytesRead, bytesWritten): (Long, Long) = Await.result(f, 1 second)
 
 `FileIO.fromFile` also takes an optional chunk size parameter which defaults to 8192. When the resulting source is materialized, it reads the target file's contents as a stream of byte strings with length equal to the chunk size parameter (except for the last chunk, which might be smaller). In these examples, we've only worked with files much smaller than 8192 bytes (data/words1.txt is only 58 bytes long). In the real world, we might instead work with very large, multi-megabyte files. The boundary between two chunks of bytes might split a line, a word, or even a character into two pieces.
 
-.Splitting words into chunks
-image::../../images/ch3/split_word.png[]
+
+[Splitting words into chunks]( images/split_word.png "Splitting words into chunks")
 
 Instead of working with files too large to be read in a single chunk, we can set the chunkSize parameter to unfeasibly low numbers to see what happens (working in the REPL makes this type of quick experiment easy. Instead of having to run our application every time we want to test something out, we can quickly run experiments and try different approaches).
 
@@ -156,7 +156,8 @@ Most English characters are single-byte characters, so this problem usually does
 
 If you want to write really robust applications that deal with unstructured binary data, you need to control the boundaries separating strings of bytes in your streams. The simplest way to do this is to split up each chunk based on some delimiter character or sequence of characters. To read a file as a stream of lines, we would read a file and split based on new line characters. New lines are represented by "\n" on Unix systems and "\r\n" on Windows.
 
-.ToLines
+#### ToLines
+
 ```
 val delimiter = ByteString("\n") // "\r\n" if on windows
 val toLines: Flow[ByteString, String, Unit] =
@@ -172,7 +173,8 @@ val toLines: Flow[ByteString, String, Unit] =
 
 Fortunately, Akka Streams provides helpers for working with streams of unstructured data. `Framing.delimiter` takes a byte string delimiter (in this case `ByteString("\n")`), a maximum line length, and a third parameter, allowTruncation, which controls whether or not the last line is required to end with the delimiter sequence (in this case, setting allowTruncation to false would cause the flow to fail if used with a file that not ending with a newline character).
 
-.Testing ToLines
+#### Testing ToLines
+
 ```
 val readLinesGraph: RunnableGraph[Future[Seq[String]]] = FileIO.fromFile(input, chunkSize = 16).via(toLines).toMat(Sink.seq)(Keep.right)
 val f: Future[Seq[String]] = readLinesGraph.run
@@ -189,16 +191,18 @@ Now that we have a way to transform streams of unstructured binary data into str
 
 CSV, or comma separated value, files use a simple storage format with near universal support. Business software like Excel, databases, scientific tools and most if not all programming languages support the CSV format. A CSV file holding records describing a list of cars might look something like this:
 
-.Sample CSV
-```
+#### Sample CSV
+
+```csv
 model, year
 DeLorean, 1982
 Ferrari, 1947
 ```
 
-CSV files are made up of rows, each taking up one line. Each row is made up of columns, separated by commas. Each row in a CSV file has the same number of columns. The first row is an optional header that contains the name of each column (it will be present in all CSV files in this chapter). Every row following the first is a data record.
+CSV files are made up of rows, each taking up one line. Each row is made up of columns, separated by commas. Each row in a CSV file has the same number of columns. The first row is an optional header that contains the name of each column (it will be present in all CSV files used in this post). Every row following the first is a data record.
 
-.Simple CSV encoding
+#### Simple CSV encoding
+
 ```
 case class Car(model: String, year: Int)
 def toCsvRow(c: Car): String = s"${c.model}, ${c.year}"
@@ -247,14 +251,14 @@ def writeCarsToFile(f: File): Sink[Car, Future[Long]] = {
 
 Here we take a Flow of Cars and map over each to convert it to a CSV row. Then, we prepend a Source containing the header row to the stream of lines to be written to the CSV file. Prepend reads every element from the provided source (just one element, in this case) before reading any from upstream. Note that if prepend is used with an infinite Source, the resulting Flow will only ever consume elements from that Source and not any other upstream Sources.
 
-.writeCarsToFile graph shape
-image::../../images/files_chapter/cars_csv_prepend.jpg[]
+[writeCarsToFile graph shape](images/cars_csv_prepend.jpg "writeCarsToFile graph shape")
 
 As you can see, the Sink-shaped stream processing graph defined by `writeCarsToFile` uses `prepend` to combine the output of the `headers` Source with the output of the previous stage, a Flow that applies the `toCsvRow` function to each element consumed by the Sink defined by `writeCarsToFile`.
 
 Let's test `writeCarsToFile` by writing a few sample values to a file, cars.csv.
 
-.CSV streaming write test pt 1
+#### CSV streaming write test pt 1
+
 ```scala
 val cars = List(Car("DeLorean", 1982), Car("Ferrari", 1947))
 val outFile = new File("cars.csv")
@@ -271,7 +275,8 @@ graph.run().onComplete{
 
 Let's look at cars.csv to confirm that it contains the expected rows.
 
-.CSV streaming write test pt 2
+#### CSV streaming write test pt 2
+
 ```scala
 > cat cars.csv
 model, year
@@ -283,7 +288,7 @@ It does. By writing to CSV files, you can output data in a format that is widely
 
 ### Parsing CSV files
 
-Parsing CSV-encoded data is quite simple. For this chapter, we'll be making a few simplifying assumptions. First, commas and newlines are _reserved characters_. They will only be used to separate rows and lines. Second, all CSV files have a header row.
+Parsing CSV-encoded data is quite simple. For this post, we'll be making a few simplifying assumptions. First, commas and newlines are _reserved characters_. They will only be used to separate rows and lines. Second, all CSV files have a header row.
 
 .CSV streaming read prelude
 ```scala
@@ -319,7 +324,7 @@ def readCarsFromFile(f: File): Source[Car, Future[Long]] =
   FileIO.fromFile(f).via(toLines).drop(1).via(parseCarsCSV)
 ```
 
-`readCarsFromFile` reads byte strings from the provided file, converts them to lines using `toLines` (defined earlier in this chapter), drops the first header row using `drop(1)` and parses them using `parseCarsCSV`. Let's test it out by reading the CSV file, cars.csv, that we just wrote some test values to.
+`readCarsFromFile` reads byte strings from the provided file, converts them to lines using `toLines` (defined earlier in this post), drops the first header row using `drop(1)` and parses them using `parseCarsCSV`. Let's test it out by reading the CSV file, cars.csv, that we just wrote some test values to.
 
 .CSV streaming read test
 ```scala
@@ -429,12 +434,11 @@ First we create `countByGender`, a Sink that consumes a stream of `CsvRow` insta
 
 In this case we're working with a small file, but this same technique can easily be applied to much larger files, right from the REPL.
 
-## Summary
+## Recap
 
 //todo: structure as standalone github project with sample code in same
 //todo: consider dropping arbitrary CSV reader
-//todo: not a chapter no 'mo
-In this chapter we learned:
+In this post we learned:
 
 //todo: expand this w/ more on byte strings
 . How to transform streams of byte string chunks read from files into streams of lines
